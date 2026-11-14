@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type Job = {
   id: number;
@@ -123,8 +124,14 @@ export default function DemoPage() {
           어떤 서비스를 이용하시나요?
         </h2>
         <p className="mt-2 text-sm text-gray-500">
-          점주와 구직자 화면을 자유롭게 전환해 보세요.
+          점주와 구직자 화면을 자유롭게 전환해 보세요. 데모 데이터는 실제 계정에 저장되지 않습니다.
         </p>
+        <Link
+          href="/login"
+          className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+        >
+          실제 계정으로 로그인 / 회원가입
+        </Link>
 
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button
