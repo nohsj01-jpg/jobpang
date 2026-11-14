@@ -2,14 +2,19 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState<"owner" | "worker">("worker");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [loading, setLoading] = useState(false);
 
   async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
@@ -28,29 +33,42 @@ export default function SignupPage() {
 
     setLoading(true);
 
-    const supabase = createClient();
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name.trim(),
-          role,
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name.trim(),
+            full_name: name.trim(),
+            phone: phone.trim(),
+            role,
+            onboarding_pending: true,
+          },
         },
-      },
-    });
+      });
 
-    setLoading(false);
+      if (error) throw error;
 
-    if (error) {
-      setMessage(`회원가입 실패: ${error.message}`);
-      return;
+      if (data.session) {
+        router.push("/role-select");
+        return;
+      }
+
+      setMessage("가입 확인 메일을 보냈어요. 이메일 인증을 마친 뒤 로그인해 주세요.");
+      setMessageType("success");
+    } catch (error) {
+      setMessage(
+        `회원가입 실패: ${
+          error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요."
+        }`
+      );
+      setMessageType("error");
+    } finally {
+      setLoading(false);
     }
-
-    setMessage(
-      "회원가입 요청이 완료됐어요. 이메일 인증이 필요하다면 받은 메일에서 인증을 진행해 주세요."
-    );
   }
 
   return (
@@ -92,6 +110,20 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="example@email.com"
+              required
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              휴대폰 번호
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="010-1234-5678"
               required
               className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
             />
@@ -159,11 +191,17 @@ export default function SignupPage() {
           </button>
 
           {message && (
-            <p className="break-words text-sm text-blue-700">
+            <p className={`break-words text-sm ${messageType === "error" ? "text-red-600" : "text-blue-700"}`}>
               {message}
             </p>
           )}
         </form>
+        <p className="mt-5 text-center text-sm text-gray-600">
+          이미 가입하셨나요?{" "}
+          <Link href="/login" className="font-semibold text-blue-700 hover:underline">
+            로그인
+          </Link>
+        </p>
       </div>
     </main>
   );

@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const supabase = createClient();
 
@@ -40,25 +41,30 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setErrorMessage('');
+    setSuccessMessage('');
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               name,
               phone,
+              onboarding_pending: true,
             },
           },
         });
         if (error) throw error;
 
-        // 회원가입 직후 역할 선택 온보딩으로 이동
-        router.push('/role-select');
+        if (data.session) {
+          router.push('/role-select');
+        } else {
+          setSuccessMessage('가입 확인 메일을 보냈어요. 이메일 인증을 마친 뒤 로그인해 주세요.');
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -90,7 +96,11 @@ export default function LoginPage() {
         localStorage.removeItem('jobpang_demo_role');
         localStorage.removeItem('jobpang_demo_user');
         clearDemoSessionCookie();
-        router.push('/home');
+        router.push(
+          data.user.user_metadata?.onboarding_pending === true
+            ? '/role-select'
+            : '/home'
+        );
       }
     } catch (err) {
       setErrorMessage(
@@ -187,6 +197,7 @@ export default function LoginPage() {
           onClick={() => {
             setIsSignUp(false);
             setErrorMessage('');
+            setSuccessMessage('');
           }}
           className={`flex-1 pb-2 text-center text-sm font-semibold border-b-2 transition-colors ${
             !isSignUp ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-400'
@@ -199,6 +210,7 @@ export default function LoginPage() {
           onClick={() => {
             setIsSignUp(true);
             setErrorMessage('');
+            setSuccessMessage('');
           }}
           className={`flex-1 pb-2 text-center text-sm font-semibold border-b-2 transition-colors ${
             isSignUp ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-400'
@@ -212,6 +224,11 @@ export default function LoginPage() {
       {errorMessage && (
         <div className="mb-3.5 rounded-xl bg-red-50 p-2.5 text-xs text-red-600 border border-red-200">
           {errorMessage}
+        </div>
+      )}
+      {successMessage && (
+        <div className="mb-3.5 rounded-xl bg-emerald-50 p-2.5 text-xs text-emerald-700 border border-emerald-200">
+          {successMessage}
         </div>
       )}
 

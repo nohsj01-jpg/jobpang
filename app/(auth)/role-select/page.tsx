@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store, UserCheck, Check, ArrowRight, ShieldCheck, AlertCircle, Briefcase, CheckSquare } from 'lucide-react';
+import { Store, UserCheck, Check, ArrowRight, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { UserRole } from '@/types/database.types';
 
@@ -58,7 +58,38 @@ export default function RoleSelectPage() {
     setSelectedSkills((prev) => (prev.includes(s) ? prev.filter((i) => i !== s) : [...prev, s]));
   };
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function prefillSignupRole() {
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (!active) return;
+
+        const role = user?.user_metadata?.role;
+        if (role === 'owner' || role === 'worker') {
+          setSelectedRole(role);
+        }
+      } catch (error) {
+        if (active) {
+          setErrorMessage(
+            error instanceof Error ? error.message : '회원 정보를 불러오지 못했습니다.'
+          );
+        }
+      }
+    }
+
+    void prefillSignupRole();
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
 
   const handleCompleteOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,12 +129,14 @@ export default function RoleSelectPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        await (supabase.from('profiles') as any)
+        const { error: profileError } = await supabase
+          .from('profiles')
           .update({ role: selectedRole })
           .eq('id', user.id);
+        if (profileError) throw profileError;
 
         if (selectedRole === 'owner') {
-          await (supabase.from('stores') as any).insert({
+          const { error: storeError } = await supabase.from('stores').insert({
             owner_id: user.id,
             brand_id: selectedBrandId,
             branch_name: branchName,
@@ -111,22 +144,33 @@ export default function RoleSelectPage() {
             address_detail: addressDetail,
             contact_phone: storePhone,
           });
+          if (storeError) throw storeError;
         } else {
-          await (supabase.from('work_experiences') as any).insert({
-            worker_id: user.id,
-            brand_id: workerBrandId,
-            branch_name: workerBranch,
-            months_of_exp: Number(monthsOfExp),
-            roles: selectedRoles,
-            skills: selectedSkills,
-            verification_type: 'self_declared',
-          });
+          const { error: experienceError } = await supabase
+            .from('work_experiences')
+            .insert({
+              worker_id: user.id,
+              brand_id: workerBrandId,
+              branch_name: workerBranch,
+              months_of_exp: Number(monthsOfExp),
+              roles: selectedRoles,
+              skills: selectedSkills,
+              verification_type: 'self_declared',
+            });
+          if (experienceError) throw experienceError;
         }
+
+        const { error: metadataError } = await supabase.auth.updateUser({
+          data: { onboarding_pending: false },
+        });
+        if (metadataError) throw metadataError;
       }
 
       router.push('/home');
-    } catch (err: any) {
-      setErrorMessage(err.message || '온보딩 정보 저장 중 오류가 발생했습니다.');
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : '온보딩 정보 저장 중 오류가 발생했습니다.'
+      );
     } finally {
       setLoading(false);
     }
