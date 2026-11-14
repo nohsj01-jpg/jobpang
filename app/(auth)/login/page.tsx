@@ -27,11 +27,14 @@ export default function LoginPage() {
 
   const supabase = createClient();
 
+  const canUseSeedAccounts =
+    process.env.NODE_ENV !== 'production' ||
+    process.env.NEXT_PUBLIC_ENABLE_TEST_ACCOUNTS === 'true';
+
   // 테스트용 시드 계정 목록 (점주 2명, 근무자 5명)
   const seedAccounts: SeedAccount[] =
-    process.env.NODE_ENV === 'production'
-      ? []
-      : [
+    canUseSeedAccounts
+      ? [
           { label: '점주 1 (메가커피 강남역점)', email: 'owner1@jobpang.kr', role: 'owner', name: '김점주' },
           { label: '점주 2 (컴포즈커피 역삼점)', email: 'owner2@jobpang.kr', role: 'owner', name: '이점주' },
           { label: '근무자 1 (메가커피 14개월/확인)', email: 'worker1@jobpang.kr', role: 'worker', name: '박알바' },
@@ -39,7 +42,8 @@ export default function LoginPage() {
           { label: '근무자 3 (컴포즈 10개월/확인)', email: 'worker3@jobpang.kr', role: 'worker', name: '최알바' },
           { label: '근무자 4 (빽다방 8개월/자가)', email: 'worker4@jobpang.kr', role: 'worker', name: '강알바' },
           { label: '근무자 5 (스타벅스 12개월/확인)', email: 'worker5@jobpang.kr', role: 'worker', name: '윤알바' },
-        ];
+        ]
+      : [];
 
   // 이메일 로그인 / 회원가입 핸들러
   const handleAuth = async (e: React.FormEvent) => {
@@ -97,7 +101,9 @@ export default function LoginPage() {
           }
           if (matched) {
             throw new Error(
-              '테스트 계정은 개발 환경에서만 사용할 수 있습니다. 회원가입하거나 실제 계정으로 로그인해 주세요.'
+              error.message === 'Invalid login credentials'
+                ? '선택한 계정이 테스트 Supabase Auth에 생성되어 있는지 확인해 주세요.'
+                : error.message
             );
           }
           throw new Error(
@@ -132,7 +138,7 @@ export default function LoginPage() {
     setIsSignUp(false);
 
     // 즉시 세션 연동 체험
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
       localStorage.setItem('jobpang_demo_role', acc.role);
       localStorage.setItem(
         'jobpang_demo_user',
@@ -162,9 +168,9 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {process.env.NODE_ENV === 'production' ? (
+      {!canUseSeedAccounts ? (
         <div className="mb-5 rounded-2xl border border-blue-200 bg-blue-50 p-3.5 text-xs leading-relaxed text-blue-800">
-          운영 환경에서는 테스트 계정을 사용할 수 없습니다. 실제 계정으로 로그인하거나 회원가입해 주세요.
+          테스트 계정은 별도 테스트 Supabase를 연결한 배포에서만 사용할 수 있습니다.
         </div>
       ) : (
         <div className="mb-5 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-3.5 space-y-2">
