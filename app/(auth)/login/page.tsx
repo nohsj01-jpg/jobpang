@@ -7,6 +7,13 @@ import { createClient } from '@/lib/supabase/client';
 import { clearDemoSessionCookie, setDemoSessionCookie } from '@/lib/demo-session';
 import type { UserRole } from '@/types/database.types';
 
+type SeedAccount = {
+  label: string;
+  email: string;
+  role: UserRole;
+  name: string;
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
@@ -21,20 +28,18 @@ export default function LoginPage() {
   const supabase = createClient();
 
   // 테스트용 시드 계정 목록 (점주 2명, 근무자 5명)
-  const seedAccounts: {
-    label: string;
-    email: string;
-    role: UserRole;
-    name: string;
-  }[] = [
-    { label: '점주 1 (메가커피 강남역점)', email: 'owner1@jobpang.kr', role: 'owner', name: '김점주' },
-    { label: '점주 2 (컴포즈커피 역삼점)', email: 'owner2@jobpang.kr', role: 'owner', name: '이점주' },
-    { label: '근무자 1 (메가커피 14개월/확인)', email: 'worker1@jobpang.kr', role: 'worker', name: '박알바' },
-    { label: '근무자 2 (메가커피 6개월/자가)', email: 'worker2@jobpang.kr', role: 'worker', name: '정알바' },
-    { label: '근무자 3 (컴포즈 10개월/확인)', email: 'worker3@jobpang.kr', role: 'worker', name: '최알바' },
-    { label: '근무자 4 (빽다방 8개월/자가)', email: 'worker4@jobpang.kr', role: 'worker', name: '강알바' },
-    { label: '근무자 5 (스타벅스 12개월/확인)', email: 'worker5@jobpang.kr', role: 'worker', name: '윤알바' },
-  ];
+  const seedAccounts: SeedAccount[] =
+    process.env.NODE_ENV === 'production'
+      ? []
+      : [
+          { label: '점주 1 (메가커피 강남역점)', email: 'owner1@jobpang.kr', role: 'owner', name: '김점주' },
+          { label: '점주 2 (컴포즈커피 역삼점)', email: 'owner2@jobpang.kr', role: 'owner', name: '이점주' },
+          { label: '근무자 1 (메가커피 14개월/확인)', email: 'worker1@jobpang.kr', role: 'worker', name: '박알바' },
+          { label: '근무자 2 (메가커피 6개월/자가)', email: 'worker2@jobpang.kr', role: 'worker', name: '정알바' },
+          { label: '근무자 3 (컴포즈 10개월/확인)', email: 'worker3@jobpang.kr', role: 'worker', name: '최알바' },
+          { label: '근무자 4 (빽다방 8개월/자가)', email: 'worker4@jobpang.kr', role: 'worker', name: '강알바' },
+          { label: '근무자 5 (스타벅스 12개월/확인)', email: 'worker5@jobpang.kr', role: 'worker', name: '윤알바' },
+        ];
 
   // 이메일 로그인 / 회원가입 핸들러
   const handleAuth = async (e: React.FormEvent) => {
@@ -90,7 +95,16 @@ export default function LoginPage() {
             router.push('/home');
             return;
           }
-          throw error;
+          if (matched) {
+            throw new Error(
+              '테스트 계정은 개발 환경에서만 사용할 수 있습니다. 회원가입하거나 실제 계정으로 로그인해 주세요.'
+            );
+          }
+          throw new Error(
+            error.message === 'Invalid login credentials'
+              ? '이메일 또는 비밀번호가 올바르지 않습니다.'
+              : error.message
+          );
         }
 
         localStorage.removeItem('jobpang_demo_role');
@@ -112,7 +126,7 @@ export default function LoginPage() {
   };
 
   // 시드 계정 빠른 선택
-  const handleSelectSeedAccount = (acc: typeof seedAccounts[0]) => {
+  const handleSelectSeedAccount = (acc: SeedAccount) => {
     setEmail(acc.email);
     setPassword('password123!');
     setIsSignUp(false);
@@ -148,47 +162,52 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* 시드 테스트 계정 퀵 셀렉터 */}
-      <div className="mb-5 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-3.5 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-zinc-800 flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5 text-blue-600" />
-            테스트 시드 계정 선택 (원클릭)
-          </span>
-          <span className="text-[10px] text-zinc-400 font-medium">비밀번호: password123!</span>
+      {process.env.NODE_ENV === 'production' ? (
+        <div className="mb-5 rounded-2xl border border-blue-200 bg-blue-50 p-3.5 text-xs leading-relaxed text-blue-800">
+          운영 환경에서는 테스트 계정을 사용할 수 없습니다. 실제 계정으로 로그인하거나 회원가입해 주세요.
         </div>
+      ) : (
+        <div className="mb-5 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-zinc-800 flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-blue-600" />
+              테스트 시드 계정 선택 (원클릭)
+            </span>
+            <span className="text-[10px] text-zinc-400 font-medium">비밀번호: password123!</span>
+          </div>
 
-        <div className="grid grid-cols-1 gap-1.5 max-h-36 overflow-y-auto pr-1">
-          {seedAccounts.map((acc) => (
-            <button
-              key={acc.email}
-              type="button"
-              onClick={() => handleSelectSeedAccount(acc)}
-              className={`flex items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs transition-all border ${
-                email === acc.email
-                  ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-xs'
-                  : 'bg-white text-zinc-700 hover:bg-zinc-100 border-zinc-200'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                    email === acc.email
-                      ? 'bg-white/20 text-white'
-                      : acc.role === 'owner'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-blue-100 text-blue-800'
-                  }`}
-                >
-                  {acc.role === 'owner' ? '점주' : '근무자'}
-                </span>
-                <span className="truncate">{acc.label}</span>
-              </div>
-              <span className="text-[10px] opacity-75 font-mono">{acc.email.split('@')[0]}</span>
-            </button>
-          ))}
+          <div className="grid grid-cols-1 gap-1.5 max-h-36 overflow-y-auto pr-1">
+            {seedAccounts.map((acc) => (
+              <button
+                key={acc.email}
+                type="button"
+                onClick={() => handleSelectSeedAccount(acc)}
+                className={`flex items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs transition-all border ${
+                  email === acc.email
+                    ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-xs'
+                    : 'bg-white text-zinc-700 hover:bg-zinc-100 border-zinc-200'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                      email === acc.email
+                        ? 'bg-white/20 text-white'
+                        : acc.role === 'owner'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-blue-100 text-blue-800'
+                    }`}
+                  >
+                    {acc.role === 'owner' ? '점주' : '근무자'}
+                  </span>
+                  <span className="truncate">{acc.label}</span>
+                </div>
+                <span className="text-[10px] opacity-75 font-mono">{acc.email.split('@')[0]}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 로그인 / 회원가입 탭 */}
       <div className="flex border-b border-zinc-200 mb-4">

@@ -43,6 +43,10 @@ function DirectRequestContent() {
         throw new Error('근무 종료 시각은 시작 시각보다 뒤여야 합니다.');
       }
 
+      if (!Number.isInteger(hourlyWage) || hourlyWage < 9860) {
+        throw new Error('시급은 9,860원 이상의 정수로 입력해 주세요.');
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -162,7 +166,7 @@ function DirectRequestContent() {
           <div className="relative">
             <input
               type="number"
-              step="500"
+              step="1"
               min="9860"
               required
               value={hourlyWage}
