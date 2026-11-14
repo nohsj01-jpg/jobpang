@@ -12,17 +12,19 @@ export default function HomePage() {
   const [role, setRole] = useState<UserRole>('worker');
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
+  const [isGuestPreview, setIsGuestPreview] = useState(false);
 
   const supabase = createClient();
 
   useEffect(() => {
     async function loadUser() {
       // 1. 데모 모드 체크
-      if (typeof window !== 'undefined') {
-        const demoRole = localStorage.getItem('jobpang_demo_role') as UserRole | null;
+      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        const demoRole = localStorage.getItem('jobpang_demo_role');
         const demoUser = localStorage.getItem('jobpang_demo_user');
-        if (demoRole) {
+        if (demoRole === 'owner' || demoRole === 'worker') {
           setRole(demoRole);
+          setIsGuestPreview(true);
           if (demoUser) {
             try {
               const parsed = JSON.parse(demoUser);
@@ -49,6 +51,10 @@ export default function HomePage() {
           setRole(profile.role as UserRole);
           setUserName(profile.name);
         }
+      } else {
+        setRole('owner');
+        setUserName('김점주');
+        setIsGuestPreview(true);
       }
 
       setLoading(false);
@@ -68,6 +74,11 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
       <Header role={role} />
+      {isGuestPreview && (
+        <p className="px-4 pt-2 text-center text-[11px] text-zinc-500">
+          게스트 미리보기 · 예시 데이터이며 저장되지 않습니다.
+        </p>
+      )}
       <main className="flex-1">
         {role === 'owner' ? (
           <OwnerDashboard userName={userName || '김점주'} />
