@@ -1,9 +1,42 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PlusCircle, Users, Clock, AlertTriangle, ArrowRight, Store, ChevronRight } from 'lucide-react';
 import { STATUS_META } from '@/lib/constants/status';
+import { isPrototypeSession } from '@/lib/prototype-session';
+import type { JobStatus } from '@/types/database.types';
+
+type OwnerJob = {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  wage: number;
+  status: JobStatus;
+  applicantCount: number;
+};
+
+const initialRecentJobs: OwnerJob[] = [
+  {
+    id: 'job-1',
+    title: '오늘 저녁 18:00~22:00 긴급 마감 대타',
+    date: '오늘 (11월 14일)',
+    time: '18:00 ~ 22:00 (4시간)',
+    wage: 13500,
+    status: 'Reviewing',
+    applicantCount: 2,
+  },
+  {
+    id: 'job-2',
+    title: '내일 오전 09:00~14:00 주말 오픈 대타',
+    date: '내일 (11월 15일)',
+    time: '09:00 ~ 14:00 (5시간)',
+    wage: 12000,
+    status: 'Open',
+    applicantCount: 0,
+  },
+];
 
 interface OwnerDashboardProps {
   userName?: string;
@@ -18,27 +51,25 @@ export function OwnerDashboard({
   activeJobsCount = 2,
   pendingRequestsCount = 1,
 }: OwnerDashboardProps) {
-  // 모의 실시간 공고 데이터 (MVP 초기 렌더용)
-  const recentJobs = [
-    {
-      id: 'job-1',
-      title: '오늘 저녁 18:00~22:00 긴급 마감 대타',
-      date: '오늘 (11월 14일)',
-      time: '18:00 ~ 22:00 (4시간)',
-      wage: 13500,
-      status: 'Reviewing' as const,
-      applicantCount: 2,
-    },
-    {
-      id: 'job-2',
-      title: '내일 오전 09:00~14:00 주말 오픈 대타',
-      date: '내일 (11월 15일)',
-      time: '09:00 ~ 14:00 (5시간)',
-      wage: 12000,
-      status: 'Open' as const,
-      applicantCount: 0,
-    },
-  ];
+  const [recentJobs, setRecentJobs] = useState(initialRecentJobs);
+
+  useEffect(() => {
+    if (!isPrototypeSession()) return;
+
+    const savedJobs = localStorage.getItem('jobpang_prototype_jobs');
+    if (!savedJobs) return;
+
+    try {
+      const prototypeJobs = JSON.parse(savedJobs) as OwnerJob[];
+      const timeoutId = window.setTimeout(
+        () => setRecentJobs((current) => [...prototypeJobs, ...current]),
+        0
+      );
+      return () => window.clearTimeout(timeoutId);
+    } catch (error) {
+      console.error('프로토타입 공고 데이터를 불러오지 못했습니다.', error);
+    }
+  }, []);
 
   return (
     <div className="flex-1 pb-20 px-4 pt-4 space-y-5">

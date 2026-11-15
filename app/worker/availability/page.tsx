@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { createClient } from '@/lib/supabase/client';
 import { MapPin, Clock, Calendar, Check, ArrowRight, Zap, Bell } from 'lucide-react';
 
 interface DaySchedule {
@@ -47,8 +46,6 @@ export default function WorkerAvailabilityPage() {
     );
   };
 
-  const supabase = createClient();
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -56,6 +53,7 @@ export default function WorkerAvailabilityPage() {
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem('jobpang_worker_preferred_area', preferredArea);
+        localStorage.setItem('jobpang_worker_radius_km', radiusKm);
         localStorage.setItem('jobpang_worker_instant_available', isInstantAvailable ? 'true' : 'false');
         localStorage.setItem('jobpang_worker_schedules', JSON.stringify(schedules));
       }

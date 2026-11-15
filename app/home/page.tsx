@@ -7,6 +7,7 @@ import { OwnerDashboard } from '@/components/owner/OwnerDashboard';
 import { WorkerDashboard } from '@/components/worker/WorkerDashboard';
 import { UserRole } from '@/types/database.types';
 import { createClient } from '@/lib/supabase/client';
+import { isPrototypeSession } from '@/lib/prototype-session';
 
 export default function HomePage() {
   const [role, setRole] = useState<UserRole>('worker');
@@ -14,12 +15,10 @@ export default function HomePage() {
   const [userName, setUserName] = useState('');
   const [isGuestPreview, setIsGuestPreview] = useState(false);
 
-  const supabase = createClient();
-
   useEffect(() => {
     async function loadUser() {
       // 1. 데모 모드 체크
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      if (isPrototypeSession()) {
         const demoRole = localStorage.getItem('jobpang_demo_role');
         const demoUser = localStorage.getItem('jobpang_demo_user');
         if (demoRole === 'owner' || demoRole === 'worker') {
@@ -29,7 +28,9 @@ export default function HomePage() {
             try {
               const parsed = JSON.parse(demoUser);
               setUserName(parsed.name || '');
-            } catch (e) {}
+            } catch (error) {
+              console.error('프로토타입 계정 정보를 불러오지 못했습니다.', error);
+            }
           }
           setLoading(false);
           return;
@@ -37,6 +38,7 @@ export default function HomePage() {
       }
 
       // 2. 실제 Supabase 세션 조회
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -61,7 +63,7 @@ export default function HomePage() {
     }
 
     loadUser();
-  }, [supabase]);
+  }, []);
 
   if (loading) {
     return (
@@ -76,7 +78,9 @@ export default function HomePage() {
       <Header role={role} />
       {isGuestPreview && (
         <p className="px-4 pt-2 text-center text-[11px] text-zinc-500">
-          게스트 미리보기 · 예시 데이터이며 저장되지 않습니다.
+          {isPrototypeSession()
+            ? '프로토타입 체험 · 입력 내용은 이 브라우저에만 임시 저장됩니다.'
+            : '게스트 미리보기 · 예시 데이터이며 저장되지 않습니다.'}
         </p>
       )}
       <main className="flex-1">

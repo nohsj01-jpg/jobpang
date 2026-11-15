@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { createClient } from '@/lib/supabase/client';
 import { Search, MapPin, Clock, DollarSign, Filter, Sparkles, X, Check, ShieldCheck } from 'lucide-react';
 import { STATUS_META } from '@/lib/constants/status';
+import { isPrototypeSession } from '@/lib/prototype-session';
 
 interface JobItem {
   id: string;
@@ -29,8 +30,6 @@ export default function JobsPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const supabase = createClient();
 
   const brands = ['전체', '메가커피', '배스킨라빈스', 'CU', '올리브영', '스타벅스', 'GS25'];
 
@@ -94,6 +93,49 @@ export default function JobsPage() {
     },
   ]);
 
+  useEffect(() => {
+    if (!isPrototypeSession()) return;
+
+    const savedJobs = localStorage.getItem('jobpang_prototype_jobs');
+    if (!savedJobs) return;
+
+    try {
+      const prototypeJobs = JSON.parse(savedJobs) as Array<{
+        id: string;
+        title: string;
+        date: string;
+        time: string;
+        wage: number;
+      }>;
+      const prototypeJobItems = prototypeJobs.map((job) => {
+        const [startTime = '', endTime = ''] = job.time
+          .split('~')
+          .map((time) => time.trim());
+        return {
+          id: job.id,
+          storeId: 'prototype-store',
+          brandName: '메가커피',
+          branchName: '강남역점',
+          title: job.title,
+          workDate: job.date,
+          startTime,
+          endTime,
+          hourlyWage: job.wage,
+          addressSummary: '서울 강남구 강남역 인근',
+          description: '프로토타입으로 등록한 공고입니다.',
+          status: 'Open' as const,
+        };
+      });
+      const timeoutId = window.setTimeout(
+        () => setJobList((current) => [...prototypeJobItems, ...current]),
+        0
+      );
+      return () => window.clearTimeout(timeoutId);
+    } catch (error) {
+      console.error('프로토타입 공고 데이터를 불러오지 못했습니다.', error);
+    }
+  }, []);
+
   const filteredJobs = jobList.filter((job) => {
     const matchBrand = selectedBrand === '전체' || job.brandName === selectedBrand;
     const matchQuery =
@@ -107,23 +149,30 @@ export default function JobsPage() {
   const handleApply = async (job: JobItem) => {
     setIsApplying(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      if (!isPrototypeSession()) {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (user) {
-        const { error } = await (supabase.from('job_applications') as any).insert({
-          job_id: job.id,
-          worker_id: user.id,
-          status: 'submitted',
-        });
-        if (error && !error.message.includes('foreign key')) {
-          throw error;
+        if (user) {
+          const { error } = await (supabase.from('job_applications') as any).insert({
+            job_id: job.id,
+            worker_id: user.id,
+            status: 'submitted',
+          });
+          if (error && !error.message.includes('foreign key')) {
+            throw error;
+          }
         }
       }
 
       setAppliedJobIds((prev) => [...prev, job.id]);
-      alert('공고에 지원이 완료되었습니다! 점주가 확인 후 채용을 확정하면 알림이 발송됩니다.');
+      alert(
+        isPrototypeSession()
+          ? '프로토타입 공고에 지원했습니다. 실제 데이터에는 반영되지 않습니다.'
+          : '공고에 지원이 완료되었습니다! 점주가 확인 후 채용을 확정하면 알림이 발송됩니다.'
+      );
       setSelectedJob(null);
     } catch (err: any) {
       alert(err.message || '지원 처리 중 오류가 발생했습니다.');

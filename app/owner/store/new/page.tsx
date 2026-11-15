@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { isPrototypeSession } from '@/lib/prototype-session';
 import type { Database } from '@/types/database.types';
 
 /**
@@ -12,8 +13,8 @@ import type { Database } from '@/types/database.types';
  */
 export default function OwnerStoreRegisterPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
-  const [brands, setBrands] = useState<Database['public']['Tables']['brands']['Row'][]>([]);
+  type BrandOption = Pick<Database['public']['Tables']['brands']['Row'], 'id' | 'name'>;
+  const [brands, setBrands] = useState<BrandOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +27,23 @@ export default function OwnerStoreRegisterPage() {
 
   // Fetch brands for selector
   useEffect(() => {
+    if (isPrototypeSession()) {
+      const prototypeBrands: BrandOption[] = [
+        { id: 'prototype-brand-mega', name: '메가커피' },
+        { id: 'prototype-brand-compose', name: '컴포즈커피' },
+        { id: 'prototype-brand-paik', name: '빽다방' },
+        { id: 'prototype-brand-starbucks', name: '스타벅스' },
+      ];
+      const timeoutId = window.setTimeout(() => {
+        setBrands(prototypeBrands);
+        setBrandId(prototypeBrands[0].id);
+        setLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timeoutId);
+    }
+
     async function fetchBrands() {
+      const supabase = createClient();
       const { data, error } = await supabase.from('brands').select('*');
       if (error) {
         setError(error.message);
@@ -37,11 +54,37 @@ export default function OwnerStoreRegisterPage() {
       setLoading(false);
     }
     fetchBrands();
-  }, [supabase]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (isPrototypeSession()) {
+      const selectedBrand = brands.find((brand) => brand.id === brandId);
+      const savedStores = JSON.parse(
+        localStorage.getItem('jobpang_prototype_stores') || '[]'
+      );
+      localStorage.setItem(
+        'jobpang_prototype_stores',
+        JSON.stringify([
+          {
+            id: `prototype-store-${Date.now()}`,
+            brandName: selectedBrand?.name || '메가커피',
+            branchName,
+            addressSummary,
+            addressDetail,
+            contactPhone,
+            minShiftHours: Number(minShiftHours),
+          },
+          ...savedStores,
+        ])
+      );
+      alert('매장이 프로토타입 데이터로 이 브라우저에 임시 저장되었습니다.');
+      router.push('/home');
+      return;
+    }
+
+    const supabase = createClient();
     // Get current user to obtain owner_id
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

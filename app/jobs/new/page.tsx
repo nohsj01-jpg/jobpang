@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { createClient } from '@/lib/supabase/client';
+import { isPrototypeSession } from '@/lib/prototype-session';
 import { Store, Calendar, Clock, DollarSign, FileText, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export default function NewJobPage() {
@@ -25,8 +26,6 @@ export default function NewJobPage() {
     const today = new Date().toISOString().split('T')[0];
     setWorkDate(today);
   }, []);
-
-  const supabase = createClient();
 
   const taskOptions = ['음료 제조', '포스 계산', '매장 청소/마감', '재고 입고/정리', '고객 응대'];
 
@@ -53,6 +52,27 @@ export default function NewJobPage() {
         throw new Error('시급은 2026년 법정 최저시급(9,860원) 이상이어야 합니다.');
       }
 
+      if (isPrototypeSession()) {
+        const prototypeJob = {
+          id: `prototype-job-${Date.now()}`,
+          title: title || `${workDate} 긴급 대타 구인`,
+          date: workDate,
+          time: `${startTime} ~ ${endTime}`,
+          wage: Number(hourlyWage),
+          status,
+          applicantCount: 0,
+        };
+        const savedJobs = JSON.parse(localStorage.getItem('jobpang_prototype_jobs') || '[]');
+        localStorage.setItem(
+          'jobpang_prototype_jobs',
+          JSON.stringify([prototypeJob, ...savedJobs])
+        );
+        alert('프로토타입 공고가 이 브라우저에 임시 저장되었습니다.');
+        router.push('/home');
+        return;
+      }
+
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

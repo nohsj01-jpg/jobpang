@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { createClient } from '@/lib/supabase/client';
+import { isPrototypeSession } from '@/lib/prototype-session';
 import { STATUS_META } from '@/lib/constants/status';
 import { Clock, MapPin, DollarSign, Store, Check, X, ShieldAlert, Sparkles, MessageSquare } from 'lucide-react';
 
@@ -27,8 +28,6 @@ export default function RequestsManagePage() {
   const [loadingRequestId, setLoadingRequestId] = useState<string | null>(null);
   const [rejectingItem, setRejectingItem] = useState<DirectRequestItem | null>(null);
   const [rejectionReason, setRejectionReason] = useState('다른 개인 일정이 있습니다.');
-
-  const supabase = createClient();
 
   // 모의 직접 대타 요청 리스트
   const [requests, setRequests] = useState<DirectRequestItem[]>([
@@ -60,6 +59,24 @@ export default function RequestsManagePage() {
     },
   ]);
 
+  useEffect(() => {
+    if (!isPrototypeSession()) return;
+
+    const savedRequests = localStorage.getItem('jobpang_prototype_requests');
+    if (!savedRequests) return;
+
+    try {
+      const prototypeRequests = JSON.parse(savedRequests) as DirectRequestItem[];
+      const timeoutId = window.setTimeout(
+        () => setRequests((current) => [...prototypeRequests, ...current]),
+        0
+      );
+      return () => window.clearTimeout(timeoutId);
+    } catch (error) {
+      console.error('프로토타입 요청 데이터를 불러오지 못했습니다.', error);
+    }
+  }, []);
+
   // 대타 요청 수락 (매칭 최종 확정)
   const handleAccept = async (request: DirectRequestItem) => {
     const confirmed = confirm(
@@ -70,7 +87,19 @@ export default function RequestsManagePage() {
     setLoadingRequestId(request.id);
 
     try {
+      if (isPrototypeSession()) {
+        setRequests((current) =>
+          current.map((item) =>
+            item.id === request.id ? { ...item, status: 'Matched' } : item
+          )
+        );
+        alert('프로토타입에서 대타 근무가 확정되었습니다.');
+        router.push('/matches/demo-match-direct-1');
+        return;
+      }
+
       // 1. Supabase RPC 호출 (원자적 수락 & 시간 중복/만료 검증)
+      const supabase = createClient();
       const { data: matchId, error } = await (supabase.rpc as any)('rpc_accept_direct_request', {
         p_request_id: request.id,
       });
@@ -95,6 +124,16 @@ export default function RequestsManagePage() {
     setLoadingRequestId(rejectingItem.id);
 
     try {
+      if (isPrototypeSession()) {
+        setRequests((current) =>
+          current.filter((request) => request.id !== rejectingItem.id)
+        );
+        setRejectingItem(null);
+        alert('프로토타입 요청을 거절했습니다. 실제 데이터에는 반영되지 않습니다.');
+        return;
+      }
+
+      const supabase = createClient();
       const { error } = await (supabase.rpc as any)('rpc_reject_direct_request', {
         p_request_id: rejectingItem.id,
         p_reason: rejectionReason,

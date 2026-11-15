@@ -6,7 +6,8 @@ import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { UserRole } from '@/types/database.types';
 import { createClient } from '@/lib/supabase/client';
-import { clearDemoSessionCookie } from '@/lib/demo-session';
+import { clearPrototypeSession, isPrototypeSession } from '@/lib/prototype-session';
+import { setDemoSessionCookie } from '@/lib/demo-session';
 import { User, Shield, RefreshCw, LogOut, Info, Bell, Store, UserCheck } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -14,8 +15,6 @@ export default function SettingsPage() {
   const [role, setRole] = useState<UserRole>('worker');
   const [userName, setUserName] = useState('김회원');
   const [phone, setPhone] = useState('010-1234-5678');
-
-  const supabase = createClient();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -40,15 +39,21 @@ export default function SettingsPage() {
     setRole(newRole);
     if (typeof window !== 'undefined') {
       localStorage.setItem('jobpang_demo_role', newRole);
+      setDemoSessionCookie(newRole);
     }
   };
 
   const handleLogout = async () => {
+    if (isPrototypeSession()) {
+      clearPrototypeSession();
+      router.push('/');
+      return;
+    }
+
+    const supabase = createClient();
     await supabase.auth.signOut();
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('jobpang_demo_role');
-      localStorage.removeItem('jobpang_demo_user');
-      clearDemoSessionCookie();
+      clearPrototypeSession();
     }
     router.push('/login');
   };

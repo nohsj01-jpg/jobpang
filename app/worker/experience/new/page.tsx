@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { createClient } from '@/lib/supabase/client';
+import { isPrototypeSession } from '@/lib/prototype-session';
 import { VERIFICATION_LABELS } from '@/lib/constants/status';
 import {
   Briefcase,
@@ -66,8 +67,6 @@ export default function NewExperiencePage() {
     );
   };
 
-  const supabase = createClient();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -98,23 +97,25 @@ export default function NewExperiencePage() {
         localStorage.setItem('jobpang_worker_main_exp', String(monthsOfExp));
       }
 
-      // Supabase 세션이 있을 경우 DB insert
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      if (!isPrototypeSession()) {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (user) {
-        await (supabase.from('work_experiences') as any).insert({
-          worker_id: user.id,
-          brand_id: brandId,
-          branch_name: branchName,
-          months_of_exp: Number(monthsOfExp),
-          start_date: startDate,
-          end_date: endDate,
-          roles: selectedRoles,
-          skills: selectedSkills,
-          verification_type: 'self_declared',
-        });
+        if (user) {
+          await (supabase.from('work_experiences') as any).insert({
+            worker_id: user.id,
+            brand_id: brandId,
+            branch_name: branchName,
+            months_of_exp: Number(monthsOfExp),
+            start_date: startDate,
+            end_date: endDate,
+            roles: selectedRoles,
+            skills: selectedSkills,
+            verification_type: 'self_declared',
+          });
+        }
       }
 
       alert('새로운 브랜드 경력이 등록되었습니다!\n(기본 "자가 등록 경력"으로 표기되며, 근무 완료 시 "매장 확인 경력"으로 승격됩니다.)');

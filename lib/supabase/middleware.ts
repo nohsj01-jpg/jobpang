@@ -7,11 +7,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholde
 
 export async function updateSession(request: NextRequest) {
   const demoRole = request.cookies.get('jobpang_demo_role')?.value;
-  const isDemoSession =
-    process.env.NODE_ENV !== 'production' &&
-    (demoRole === 'owner' || demoRole === 'worker');
+  const isDemoSession = demoRole === 'owner' || demoRole === 'worker';
 
-  if (isDemoSession) {
+  if (isDemoSession && !request.nextUrl.pathname.startsWith('/api')) {
     const pathname = request.nextUrl.pathname;
     if (pathname.startsWith('/login') || pathname.startsWith('/role-select')) {
       return NextResponse.redirect(new URL('/home', request.url));

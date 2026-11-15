@@ -4,15 +4,12 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Zap, ArrowRight, Lock, Mail, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { clearDemoSessionCookie, setDemoSessionCookie } from '@/lib/demo-session';
-import type { UserRole } from '@/types/database.types';
-
-type SeedAccount = {
-  label: string;
-  email: string;
-  role: UserRole;
-  name: string;
-};
+import {
+  clearPrototypeSession,
+  prototypeAccounts,
+  startPrototypeSession,
+  type PrototypeAccount,
+} from '@/lib/prototype-session';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,25 +22,12 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const supabase = createClient();
-
   const canUseSeedAccounts =
     process.env.NODE_ENV !== 'production' ||
     process.env.NEXT_PUBLIC_ENABLE_TEST_ACCOUNTS === 'true';
 
   // 테스트용 시드 계정 목록 (점주 2명, 근무자 5명)
-  const seedAccounts: SeedAccount[] =
-    canUseSeedAccounts
-      ? [
-          { label: '점주 1 (메가커피 강남역점)', email: 'owner1@jobpang.kr', role: 'owner', name: '김점주' },
-          { label: '점주 2 (컴포즈커피 역삼점)', email: 'owner2@jobpang.kr', role: 'owner', name: '이점주' },
-          { label: '근무자 1 (메가커피 14개월/확인)', email: 'worker1@jobpang.kr', role: 'worker', name: '박알바' },
-          { label: '근무자 2 (메가커피 6개월/자가)', email: 'worker2@jobpang.kr', role: 'worker', name: '정알바' },
-          { label: '근무자 3 (컴포즈 10개월/확인)', email: 'worker3@jobpang.kr', role: 'worker', name: '최알바' },
-          { label: '근무자 4 (빽다방 8개월/자가)', email: 'worker4@jobpang.kr', role: 'worker', name: '강알바' },
-          { label: '근무자 5 (스타벅스 12개월/확인)', email: 'worker5@jobpang.kr', role: 'worker', name: '윤알바' },
-        ]
-      : [];
+  const seedAccounts: PrototypeAccount[] = canUseSeedAccounts ? prototypeAccounts : [];
 
   // 이메일 로그인 / 회원가입 핸들러
   const handleAuth = async (e: React.FormEvent) => {
@@ -53,6 +37,7 @@ export default function LoginPage() {
     setSuccessMessage('');
 
     try {
+      const supabase = createClient();
       if (isSignUp) {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -83,19 +68,7 @@ export default function LoginPage() {
           // 시드 계정인 경우 로컬 데모 세션으로 부드럽게 연결
           const matched = seedAccounts.find((a) => a.email === email);
           if (matched && process.env.NODE_ENV !== 'production') {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('jobpang_demo_role', matched.role);
-              localStorage.setItem(
-                'jobpang_demo_user',
-                JSON.stringify({
-                  email: matched.email,
-                  name: matched.name,
-                  role: matched.role,
-                  phone: '010-1234-5678',
-                })
-              );
-              setDemoSessionCookie(matched.role);
-            }
+            startPrototypeSession(matched);
             router.push('/home');
             return;
           }
@@ -113,9 +86,7 @@ export default function LoginPage() {
           );
         }
 
-        localStorage.removeItem('jobpang_demo_role');
-        localStorage.removeItem('jobpang_demo_user');
-        clearDemoSessionCookie();
+        clearPrototypeSession();
         router.push(
           data.user.user_metadata?.onboarding_pending === true
             ? '/role-select'
@@ -132,24 +103,10 @@ export default function LoginPage() {
   };
 
   // 시드 계정 빠른 선택
-  const handleSelectSeedAccount = (acc: SeedAccount) => {
+  const handleSelectSeedAccount = (acc: PrototypeAccount) => {
     setEmail(acc.email);
     setPassword('password123!');
     setIsSignUp(false);
-
-    // 즉시 세션 연동 체험
-    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      localStorage.setItem('jobpang_demo_role', acc.role);
-      localStorage.setItem(
-        'jobpang_demo_user',
-        JSON.stringify({
-          email: acc.email,
-          name: acc.name,
-          role: acc.role,
-          phone: '010-1234-5678',
-        })
-      );
-    }
   };
 
   return (

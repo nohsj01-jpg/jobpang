@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { createClient } from '@/lib/supabase/client';
+import { isPrototypeSession } from '@/lib/prototype-session';
 import { Store, User, Calendar, Clock, DollarSign, MessageSquare, Send, ArrowRight } from 'lucide-react';
 
 function DirectRequestContent() {
@@ -28,8 +29,6 @@ function DirectRequestContent() {
     setWorkDate(today);
   }, []);
 
-  const supabase = createClient();
-
   const handleSendRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -47,6 +46,33 @@ function DirectRequestContent() {
         throw new Error('시급은 9,860원 이상의 정수로 입력해 주세요.');
       }
 
+      if (isPrototypeSession()) {
+        const request = {
+          id: `prototype-request-${Date.now()}`,
+          storeName: '메가커피',
+          branchName: '강남역점',
+          brandName: '메가커피',
+          workDate,
+          startTime,
+          endTime,
+          hourlyWage,
+          message,
+          addressSummary: '서울 강남구 강남역 인근',
+          status: 'Pending',
+        };
+        const savedRequests = JSON.parse(
+          localStorage.getItem('jobpang_prototype_requests') || '[]'
+        );
+        localStorage.setItem(
+          'jobpang_prototype_requests',
+          JSON.stringify([request, ...savedRequests])
+        );
+        alert('대타 요청이 프로토타입 데이터로 이 브라우저에 임시 저장되었습니다.');
+        router.push('/home');
+        return;
+      }
+
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

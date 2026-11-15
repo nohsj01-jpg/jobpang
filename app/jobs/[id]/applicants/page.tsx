@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { createClient } from '@/lib/supabase/client';
+import { isPrototypeSession } from '@/lib/prototype-session';
 import { VERIFICATION_LABELS } from '@/lib/constants/status';
 import { User, Check, Shield, Clock, BadgeCheck, AlertCircle, ArrowRight } from 'lucide-react';
 
@@ -26,8 +27,6 @@ function ApplicantsContent() {
   const jobId = (params?.id as string) || 'job-1';
 
   const [loadingApplicantId, setLoadingApplicantId] = useState<string | null>(null);
-  const supabase = createClient();
-
   // 모의 지원자 데이터 (공고 지원 리스트)
   const [applicants, setApplicants] = useState<Applicant[]>([
     {
@@ -64,7 +63,19 @@ function ApplicantsContent() {
     setLoadingApplicantId(applicant.id);
 
     try {
+      if (isPrototypeSession()) {
+        setApplicants((current) =>
+          current.map((item) =>
+            item.id === applicant.id ? { ...item, status: 'accepted' } : item
+          )
+        );
+        alert(`${applicant.name} 근무자와 프로토타입 매칭이 확정되었습니다.`);
+        router.push('/matches/demo-match-1');
+        return;
+      }
+
       // 1. Supabase RPC 호출 시도 (원자적 채용 확정 및 이중확정/시간중복 검증)
+      const supabase = createClient();
       const { data: matchId, error } = await (supabase.rpc as any)('rpc_accept_job_application', {
         p_job_id: jobId,
         p_worker_id: applicant.workerId,
